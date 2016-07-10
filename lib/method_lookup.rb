@@ -56,8 +56,7 @@ class Object
         method_selector = lookup_state.selector
 
         # Method lookup
-        #next_method = Kernel.__get_next_method(current_class, self.class, method_selector, lookup_state.runtime_layer, current_owner)
-        next_method = Kernel.__get_next_method(lookup_state)
+        next_method = lookup_state.get_method_for_next_state
 
         LOG.info("-P-> Calling #{next_method.name}")
         next_method.bind(target_object).call(*args, &block)
@@ -67,57 +66,11 @@ end
 module Kernel
     # Retrieves the next method (UnboundMethod) that should be called
     def self.__get_next_method(lookup_state)
-        if lookup_state.current_layer == nil
-            # check next superclass
-            lookup_state.advance_current_class!
-            lookup_state.top_of_composition_stack!
-            __get_method_for(lookup_state)
-        else
-            # check next layer
-            # TODO: how do we get the runtime_layer of current_layer???
-            lookup_state.advance_runtime_layer!
-            __get_method_for(lookup_state)
-        end
+
     end
 
     def self.__get_method_for(lookup_state)
-        if lookup_state.end_of_superclass_hierarchy?
-            # Lookup failed
-            return nil
-        end
 
-        if lookup_state.end_of_layer_stack?
-            # base method
-            mangled_selector = __original_selector(lookup_state.selector)
-            if lookup_state.current_class.instance_methods.include?(mangled_selector)
-                # found base method
-                lookup_state.current_class.instance_method(mangled_selector)
-            else
-                # look for next partial method in superclass
-                lookup_state.top_of_composition_stack!
-                lookup_state.advance_current_class!
-                __get_method_for(lookup_state)
-            end
-        else
-            # look partial method/base method of current_class
-
-            if lookup_state.end_of_runtime_layer_superclass_hierarchy?
-                # exhausted search in superclass hierarchy of runtime_layer, progress to next layer
-                lookup_state.advance_runtime_layer!
-                # next_layer == nil indicates "check for base method next"
-                __get_method_for(lookup_state)
-            else
-                mangled_selector = __partial_selector(lookup_state.selector, lookup_state.current_layer)
-                if lookup_state.current_class.instance_methods.include?(mangled_selector)
-                    # found partial method
-                    lookup_state.current_class.instance_method(mangled_selector)
-                else
-                    # look for partial method in superclass of current layer, nil indicates "check next layer"
-                    lookup_state.advance_current_layer!
-                    __get_method_for(lookup_state)
-                end
-            end
-        end
     end
 
     # Returns the layer underneath current_layer, or nil if there are no more layers
@@ -174,5 +127,59 @@ class LookupState
 
     def end_of_layer_stack?
         @runtime_layer == nil
+    end
+
+    def get_method_for_this_state
+        if end_of_superclass_hierarchy?
+            # Lookup failed
+            return nil
+        end
+
+        if end_of_layer_stack?
+            # base method
+            mangled_selector = Kernel.__original_selector(selector)
+            if current_class.instance_methods.include?(mangled_selector)
+                # found base method
+                current_class.instance_method(mangled_selector)
+            else
+                # look for next partial method in superclass
+                top_of_composition_stack!
+                advance_current_class!
+                get_method_for_this_state
+            end
+        else
+            # look partial method/base method of current_class
+
+            if end_of_runtime_layer_superclass_hierarchy?
+                # exhausted search in superclass hierarchy of runtime_layer, progress to next layer
+                advance_runtime_layer!
+                # next_layer == nil indicates "check for base method next"
+                get_method_for_this_state
+            else
+                mangled_selector = Kernel.__partial_selector(selector, current_layer)
+                if current_class.instance_methods.include?(mangled_selector)
+                    # found partial method
+                    current_class.instance_method(mangled_selector)
+                else
+                    # look for partial method in superclass of current layer, nil indicates "check next layer"
+                    advance_current_layer!
+                    get_method_for_this_state
+                end
+            end
+        end
+    end
+
+    def get_method_for_next_state
+        if end_of_runtime_layer_superclass_hierarchy?
+            # check next superclass
+            advance_current_class!
+            top_of_composition_stack!
+            get_method_for_this_state
+        else
+            # check next layer
+            # TODO: how do we get the runtime_layer of current_layer???
+            advance_runtime_layer!
+            get_method_for_this_state
+        end
     end
 end
