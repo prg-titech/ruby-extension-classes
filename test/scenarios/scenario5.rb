@@ -48,3 +48,41 @@ class S5_F
 		end
 	end
 end
+
+# Hierarchical Scoping + Inheritance Scoping
+class S5_N; end
+class S5_O; end
+class S5_P; end
+class S5_Q; end
+
+class S5_M
+	partial
+
+	class ::S5_N
+		pass
+	end
+end
+
+class S5_J
+	class S5_K < S5_M
+		partial
+
+		class ::S5_O
+			pass
+		end
+	end
+
+	class S5_L
+		partial
+
+		class ::S5_P
+			pass
+		end
+	end
+
+	partial
+
+	class ::S5_Q
+		pass
+	end
+end
