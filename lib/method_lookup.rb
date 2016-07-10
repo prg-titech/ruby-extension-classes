@@ -48,6 +48,16 @@ end
 module Kernel
     # Retrieves the next method (UnboundMethod) that should be called
     def self.__get_next_method(current_class, runtime_class, selector, current_layer = nil)
+        if current_layer == nil
+            # check next superclass
+            __get_method_for(__get_superclass(current_class, runtime_class), runtime_class, selector, __layer_stack.first)
+        else
+            # check next layer
+            __get_method_for(current_class, runtime_class, selector, __get_next_layer(current_layer))
+        end
+    end
+
+    def self.__get_method_for(current_class, runtime_class, selector, current_layer = nil)
         puts "current_class = #{current_class}, current_layer = #{current_layer}"
 
         if current_class == nil
@@ -67,12 +77,11 @@ module Kernel
                 next_layer = __layer_stack.first
                 next_class = __get_superclass(current_class, runtime_class)
                 # next_layer == nil indicates "check for base method next"
-                __get_next_method(next_class, runtime_class, selector, next_layer)
+                __get_method_for(next_class, runtime_class, selector, next_layer)
             end
         else
-            # look for the next partial method/base method of current_class
-            next_layer = Kernel.__get_next_layer(current_layer)
-            mangled_selector = __partial_selector(selector, next_layer)
+            # look partial method/base method of current_class
+            mangled_selector = __partial_selector(selector, current_layer)
             if current_class.instance_methods.include?(mangled_selector)
                 # found partial method
                 current_class.instance_method(mangled_selector)
@@ -80,7 +89,7 @@ module Kernel
                 # look for next partial method
                 next_layer = __get_next_layer(current_layer)
                 # next_layer == nil indicates "check for base method next"
-                __get_next_method(current_class, runtime_class, selector, next_layer)
+                __get_method_for(current_class, runtime_class, selector, next_layer)
             end
         end
     end
