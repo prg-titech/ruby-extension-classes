@@ -65,7 +65,7 @@ class Module
             # ------- BEGIN METHOD WRAPPER -------
 
             # Find top-most partial method in layer stack
-            layer = Kernel.__layer_stack.reverse_each.detect do |next_layer|
+            layer = Kernel.__layer_stack.detect do |next_layer|
                 target_class.instance_methods.include?(Kernel.__partial_selector(name, next_layer))
             end
 

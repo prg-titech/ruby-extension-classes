@@ -31,7 +31,7 @@ class Object
             method_selector = Kernel.__extract_selector_from_mangled_partial(current_method_selector)
 
             # Find next partial method in layer stack
-            layer = Kernel.__layer_stack.slice(0, current_layer_index).reverse_each.detect do |next_layer|
+            layer = Kernel.__layer_stack.slice(current_layer_index + 1, Kernel.__layer_stack.size()).detect do |next_layer|
                 target_class.instance_methods.include?(Kernel.__partial_selector(method_selector, next_layer))
             end
 
@@ -45,3 +45,53 @@ class Object
         end
     end
 end
+
+module Kernel
+    # Retrieves the next method (UnboundMethod) that should be called
+    def __get_next_method(current_class, runtime_class, selector, current_layer = nil)
+        if current_class == nil
+            # Lookup failed
+            return nil
+        end
+
+        if current_layer == nil
+            # base method
+            mangled_selector = __original_selector(selector)
+            if current_class.instance_methods.include?(mangled_selector)
+                # found base method
+                current_class.instance_method[mangled_selector]
+            else
+                # look for next partial method in superclass
+                next_layer = __layer_stack.first
+                next_class = __get_superclass(current_class, runtime_class)
+                # next_layer == nil indicates "check for base method next"
+                __get_next_method(next_class, runtime_class, selector, next_layer)
+            end
+        else
+            # look for the next partial method/base method of current_class
+            mangled_selector = __partial_selector(selector, next_layer)
+            if current_class.instance_methods.include?(mangled_selector)
+                # found partial method
+                current_class.instance_method[mangled_selector]
+            else
+                # look for next partial method
+                next_layer = __get_next_layer(current_layer)
+                # next_layer == nil indicates "check for base method next"
+                __get_next_method(current_class, runtime_class, selector, next_layer)
+            end
+        end
+    end
+
+    # Returns the layer underneath current_layer, or nil if there are no more layers
+    def __get_next_layer(current_layer)
+        __layer_stack[__layer_stack.find_index(current_layer) + 1]
+    end
+
+    # Returns the next superclass/supermodule of klass in the hierarchy of runtime_class
+    def __get_superclass(klass, runtime_class)
+        # Don't use "superclass" method to account for modules
+        superclasses = runtime_class.ancestors - [BasicObject]
+        superclasses[superclass.find_index(klass) + 1]
+    end
+end
+

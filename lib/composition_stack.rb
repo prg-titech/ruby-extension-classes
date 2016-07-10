@@ -2,13 +2,15 @@ module Kernel
     @@__layer_stack = []
 
     def self.__layer_stack
+        # top of stack is first element
         @@__layer_stack
     end
 
     def self.__activate_layer(layer)
         if !__layer_stack.include?(layer)
             LOG.info("Activating layer: #{layer}")
-            __layer_stack.push(layer)
+            # push to front
+            __layer_stack.unshift(layer)
         else
         	LOG.warn("TODO: layer already activated, implement layer shuffling")
         end
