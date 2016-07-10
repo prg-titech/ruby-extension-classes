@@ -19,3 +19,23 @@ class A
 		end
 	end
 end
+
+# C {B,A} --> A {B} --> B
+class C
+	def call_A_B_chain
+		A.new.call_B
+	end
+
+	partial
+
+	class ::B
+		def m_refinement
+			[:refinement_B_C] + proceed
+		end
+	end
+
+	# Ensure that C remains active
+	class ::A
+		pass
+	end
+end

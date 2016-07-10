@@ -28,6 +28,14 @@ class Module
         @__definining_partial = true
     end
 
+    def pass
+        sender = binding.of_caller(2).eval("self")
+
+        if sender.is_a?(Module) && sender.is_defining_partial?
+            sender.__target_classes.add(self)
+        end
+    end
+
     def method_added(name)
         # Make sure that we're not calling intercepting method definitions of wrappers etc.
         return if @__last_method_added == name || name[0, 2] == "__" || EXLCUDED_METHODS.include?(name)
