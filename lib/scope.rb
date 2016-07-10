@@ -27,15 +27,22 @@ class Module
     end
 
     def __scope
-        __target_classes + __all_nested_classes
+        __target_classes + __all_nested_classes + [self]
     end
 end
 
 module Kernel
+	# Invoked if a method in klass is called
 	def self.__deactivation_rule(klass)
 		__layer_stack.reject! do |active_class|
 			# Deactivate a class if it is not in the scope of the class whose method is called
-			not active_class.__scope.include?(klass)
+			# Reject if $klass \not\in scope(active_class)$
+			if active_class.__scope.include?(klass)
+				false
+			else
+				LOG.info("[X] Deactivating #{active_class}, not in #{klass} ∉ scope(#{active_class}) = #{active_class.__scope.to_a}")
+				true
+			end
 		end
 	end
 

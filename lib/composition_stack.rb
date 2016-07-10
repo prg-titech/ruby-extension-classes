@@ -12,11 +12,12 @@ module Kernel
             # push to front
             __layer_stack.unshift(layer)
         else
-        	LOG.warn("TODO: layer already activated, implement layer shuffling")
+        	LOG.warn("TODO: layer #{layer} already activated, implement layer shuffling")
         end
     end
 
     def self.__with_layer(layer, &block)
+        LOG.info(" [ ] BLOCK with layer: #{layer}")
         original_layer_stack = @@__layer_stack.clone
 
         classes_to_activate = Kernel.__activation_rule_get_all_classes_for(layer)

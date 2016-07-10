@@ -13,4 +13,8 @@ class ScopeReflexivityTest < TestCase
 		assert_equal(:original_A_A, S1_A.new.m_original)
 		assert_equal(:original_A_A, S1_A.new.m_refinement)
 	end
+
+	def test_scope
+		assert_equal([S1_A], S1_A.__scope.to_a)
+	end
 end
