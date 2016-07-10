@@ -58,8 +58,6 @@ module Kernel
     end
 
     def self.__get_method_for(current_class, runtime_class, selector, current_layer = nil)
-        puts "current_class = #{current_class}, current_layer = #{current_layer}"
-
         if current_class == nil
             # Lookup failed
             return nil
@@ -68,7 +66,6 @@ module Kernel
         if current_layer == nil
             # base method
             mangled_selector = __original_selector(selector)
-            puts selector
             if current_class.instance_methods.include?(mangled_selector)
                 # found base method
                 current_class.instance_method(mangled_selector)

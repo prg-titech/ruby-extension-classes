@@ -26,8 +26,46 @@ class Module
         @__target_classes ||= Set.new
     end
 
+    FORBIDDEN_SUPERCLASS_SCOPING = [Object, BasicObject, nil]
     def __scope
-        __target_classes + __all_nested_classes + [self]
+        queue = [self]
+        scope = Set.new
+        visited = Set.new
+
+        #return scope
+
+        while not queue.empty?
+            next_class = queue.pop
+
+            # Avoid recursion to same class, which can happen if superclass is an enclosing class
+            if not visited.include?(next_class)
+                # Reflexivity
+                scope.add(next_class)
+                # Dynamic Scoping
+                scope += next_class.__target_classes
+
+                # Inheritance Scoping
+                if next_class.is_a?(Class)
+                    # TODO: account for included modules
+                    if not FORBIDDEN_SUPERCLASS_SCOPING.include?(next_class.superclass)
+                        # Special rule: do not include Object
+                        queue.push(next_class.superclass)
+                    end
+                end
+
+                # Hierarchical Scoping
+                next_class.__all_nested_classes.each do |klass|
+                    # TODO: account for modules
+                    if klass.is_a?(Class)
+                        queue.push(klass)
+                    end
+                end
+
+                visited.add(next_class)
+            end
+        end
+
+        scope
     end
 end
 

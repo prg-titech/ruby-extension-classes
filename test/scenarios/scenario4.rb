@@ -52,3 +52,36 @@ class S4_E < S4_D
 		[:original_E_E] + proceed
 	end
 end
+
+# Mixed inheritance/layer proceed with single layer
+class S4_E1
+	def m_refinement
+		[:original_E1_E1]
+	end
+end
+
+class S4_E2 < S4_E1
+	def m_refinement
+		[:original_E2_E2] + proceed
+	end
+end
+
+class S4_F
+	def call_E2
+		S4_E2.new.m_refinement
+	end
+	
+	partial
+
+	class ::S4_E1
+		def m_refinement
+			[:refinement_E1_F] + proceed
+		end
+	end
+
+	class ::S4_E2
+		def m_refinement
+			[:refinement_E2_F] + proceed
+		end
+	end
+end

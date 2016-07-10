@@ -9,19 +9,19 @@ class Module
     alias_method(:__original_protected, :protected)
     alias_method(:__original_public, :public)
 
-    def private
+    def private(*args)
         @__definining_partial = false
-        __original_private
+        __original_private(*args)
     end
 
-    def protected
+    def protected(*args)
         @__definining_partial = false
-        __original_protected
+        __original_protected(*args)
     end
 
-    def public
+    def public(*args)
         @__definining_partial = false
-        __original_public
+        __original_public(*args)
     end
 
     def partial
@@ -72,14 +72,18 @@ class Module
             # Method lookup
             method = Kernel.__get_method_for(current_class, runtime_class, selector, current_layer)
 
-            LOG.info("Calling #{method.name}")
+            if method == nil
+                BasicObject.instance_method(:method_missing).bind(self).call(selector, *args, &block)
+            else
+                LOG.info("Calling #{method.name}")
 
-            # Deactivation of classes
-            Kernel.__deactivation_rule(runtime_class)
-            
-            # Activate class to which the method belongs
-            Kernel.__with_layer(runtime_class) do
-                method.bind(self).call(*args, &block)
+                # Deactivation of classes
+                Kernel.__deactivation_rule(runtime_class)
+                
+                # Activate class to which the method belongs
+                Kernel.__with_layer(runtime_class) do
+                    method.bind(self).call(*args, &block)
+                end
             end
 
             # ------- END METHOD WRAPPER -------
