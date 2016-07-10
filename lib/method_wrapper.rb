@@ -4,6 +4,8 @@ class Module
     LOG = Kernel::LOG
     EXLCUDED_METHODS = [:method_added, :singleton_method_added, :is_defining_partial?]
     EXCLUDED_CLASSES = [IO]
+    # Do not mess with the testing framework
+    EXCLUDED_CLASSES_START_WITH = ["Test::"]
 
     alias_method(:__original_private, :private)
     alias_method(:__original_protected, :protected)
@@ -40,6 +42,9 @@ class Module
         # Make sure that we're not calling intercepting method definitions of wrappers etc.
         return if @__last_method_added == name || name[0, 2] == "__" || EXLCUDED_METHODS.include?(name)
         return if EXCLUDED_CLASSES.include?(self)
+        return if EXCLUDED_CLASSES_START_WITH.any? do |prefix|
+            self.to_s.start_with?(prefix)
+        end
 
         target_class = self
 
@@ -64,13 +69,14 @@ class Module
 
             # ------- BEGIN METHOD WRAPPER -------
 
-            current_class = target_class
             runtime_class = self.class
             selector = name
-            current_layer = Kernel.__layer_stack.first
+            __lookup_state = LookupState.new(current_class: target_class, runtime_class: runtime_class,
+                runtime_layer: Kernel.__layer_stack.first, selector: selector)
 
             # Method lookup
-            method = Kernel.__get_method_for(current_class, runtime_class, selector, current_layer)
+            method = Kernel.__get_method_for(__lookup_state.current_class, __lookup_state.runtime_class, 
+                __lookup_state.selector, __lookup_state.current_layer)
 
             if method == nil
                 BasicObject.instance_method(:method_missing).bind(self).call(selector, *args, &block)
