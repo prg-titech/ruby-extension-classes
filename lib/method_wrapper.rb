@@ -64,20 +64,22 @@ class Module
 
             # ------- BEGIN METHOD WRAPPER -------
 
-            # Find top-most partial method in layer stack
-            layer = Kernel.__layer_stack.detect do |next_layer|
-                target_class.instance_methods.include?(Kernel.__partial_selector(name, next_layer))
-            end
+            current_class = target_class
+            runtime_class = self.class
+            selector = name
+            current_layer = Kernel.__layer_stack.first
 
-            partial_selector = if layer == nil then Kernel.__original_selector(name) else Kernel.__partial_selector(name, layer) end
-            LOG.info("Calling #{partial_selector}")
+            # Method lookup
+            method = Kernel.__get_method_for(current_class, runtime_class, selector, current_layer)
+
+            LOG.info("Calling #{method.name}")
 
             # Deactivation of classes
-            Kernel.__deactivation_rule(target_class)
+            Kernel.__deactivation_rule(runtime_class)
             
             # Activate class to which the method belongs
-            Kernel.__with_layer(target_class) do
-                target_class.instance_method(partial_selector).bind(self).call(*args, &block)
+            Kernel.__with_layer(runtime_class) do
+                method.bind(self).call(*args, &block)
             end
 
             # ------- END METHOD WRAPPER -------
