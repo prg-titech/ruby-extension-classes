@@ -75,8 +75,7 @@ class Module
                 runtime_layer: Kernel.__layer_stack.first, selector: selector)
 
             # Method lookup
-            method = Kernel.__get_method_for(__lookup_state.current_class, __lookup_state.runtime_class, 
-                __lookup_state.selector, __lookup_state.current_layer)
+            method = Kernel.__get_method_for(__lookup_state)
 
             if method == nil
                 BasicObject.instance_method(:method_missing).bind(self).call(selector, *args, &block)

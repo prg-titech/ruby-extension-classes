@@ -56,7 +56,8 @@ class Object
         method_selector = lookup_state.selector
 
         # Method lookup
-        next_method = Kernel.__get_next_method(current_class, self.class, method_selector, lookup_state.runtime_layer, current_owner)
+        #next_method = Kernel.__get_next_method(current_class, self.class, method_selector, lookup_state.runtime_layer, current_owner)
+        next_method = Kernel.__get_next_method(lookup_state)
 
         LOG.info("-P-> Calling #{next_method.name}")
         next_method.bind(target_object).call(*args, &block)
@@ -65,58 +66,55 @@ end
 
 module Kernel
     # Retrieves the next method (UnboundMethod) that should be called
-    def self.__get_next_method(current_class, runtime_class, selector, runtime_layer, current_layer = nil)
-        if current_layer == nil
+    def self.__get_next_method(lookup_state)
+        if lookup_state.current_layer == nil
             # check next superclass
-            __get_method_for(__get_superclass(current_class, runtime_class), runtime_class, selector, __layer_stack.first)
+            lookup_state.advance_current_class!
+            lookup_state.top_of_composition_stack!
+            __get_method_for(lookup_state)
         else
             # check next layer
             # TODO: how do we get the runtime_layer of current_layer???
-            __get_method_for(current_class, runtime_class, selector, __get_next_layer(current_layer))
+            lookup_state.advance_runtime_layer!
+            __get_method_for(lookup_state)
         end
     end
 
-    # current_class: Lookup class in receiver's class hierarchy
-    # runtime_class: Receiver's runtime class
-    # current_layer: Current lookup layer (which layer are we attempting to call a method from)
-    # runtime_layer: Layer class (most specific subtype)
-    def self.__get_method_for(current_class, runtime_class, selector, runtime_layer = nil, current_layer = runtime_layer)
-        puts " ____ GET METHOD FOR (current_class: #{current_class}, runtime_class: #{runtime_class}, selector: #{selector}, runtime_layer: #{runtime_layer}"
-        if current_class == nil
+    def self.__get_method_for(lookup_state)
+        if lookup_state.end_of_superclass_hierarchy?
             # Lookup failed
             return nil
         end
 
-        if runtime_layer == nil
+        if lookup_state.end_of_layer_stack?
             # base method
-            mangled_selector = __original_selector(selector)
-            if current_class.instance_methods.include?(mangled_selector)
+            mangled_selector = __original_selector(lookup_state.selector)
+            if lookup_state.current_class.instance_methods.include?(mangled_selector)
                 # found base method
-                current_class.instance_method(mangled_selector)
+                lookup_state.current_class.instance_method(mangled_selector)
             else
                 # look for next partial method in superclass
-                next_layer = __layer_stack.first
-                next_class = __get_superclass(current_class, runtime_class)
-                # next_layer == nil indicates "check for base method next"
-                __get_method_for(next_class, runtime_class, selector, next_layer)
+                lookup_state.top_of_composition_stack!
+                lookup_state.advance_current_class!
+                __get_method_for(lookup_state)
             end
         else
             # look partial method/base method of current_class
 
-            if current_layer == nil
+            if lookup_state.end_of_runtime_layer_superclass_hierarchy?
                 # exhausted search in superclass hierarchy of runtime_layer, progress to next layer
-                next_layer = __get_next_layer(runtime_layer)
+                lookup_state.advance_runtime_layer!
                 # next_layer == nil indicates "check for base method next"
-                __get_method_for(current_class, runtime_class, selector, next_layer)
+                __get_method_for(lookup_state)
             else
-                mangled_selector = __partial_selector(selector, current_layer)
-                if current_class.instance_methods.include?(mangled_selector)
+                mangled_selector = __partial_selector(lookup_state.selector, lookup_state.current_layer)
+                if lookup_state.current_class.instance_methods.include?(mangled_selector)
                     # found partial method
-                    current_class.instance_method(mangled_selector)
+                    lookup_state.current_class.instance_method(mangled_selector)
                 else
                     # look for partial method in superclass of current layer, nil indicates "check next layer"
-                    layer_superclass = __get_superclass(current_layer, runtime_layer)
-                    __get_method_for(current_class, runtime_class, selector, runtime_layer, layer_superclass)
+                    lookup_state.advance_current_layer!
+                    __get_method_for(lookup_state)
                 end
             end
         end
@@ -124,7 +122,6 @@ module Kernel
 
     # Returns the layer underneath current_layer, or nil if there are no more layers
     def self.__get_next_layer(runtime_layer)
-        puts "RRR: #{runtime_layer}"
         __layer_stack[__layer_stack.find_index(runtime_layer) + 1]
     end
 
@@ -150,4 +147,32 @@ class LookupState
     attr_accessor :current_class
     attr_accessor :current_layer
     attr_accessor :selector
+
+    def advance_current_class!
+        @current_class = Kernel.__get_superclass(@current_class, @runtime_class)
+    end
+
+    def top_of_composition_stack!
+        @current_layer = @runtime_layer = Kernel.__layer_stack.first
+    end
+
+    def advance_runtime_layer!
+        @runtime_layer = @current_layer = Kernel.__get_next_layer(@runtime_layer)
+    end
+
+    def advance_current_layer!
+        @current_layer = Kernel.__get_superclass(@current_layer, @runtime_layer)
+    end
+
+    def end_of_superclass_hierarchy?
+        @current_class == nil
+    end
+
+    def end_of_runtime_layer_superclass_hierarchy?
+        @current_layer == nil
+    end
+
+    def end_of_layer_stack?
+        @runtime_layer == nil
+    end
 end
