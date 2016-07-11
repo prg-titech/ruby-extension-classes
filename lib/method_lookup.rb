@@ -138,7 +138,7 @@ class LookupState
         if end_of_layer_stack?
             # base method
             mangled_selector = Kernel.__original_selector(selector)
-            if current_class.instance_methods.include?(mangled_selector)
+            if current_class.instance_methods(false).include?(mangled_selector)
                 # found base method
                 current_class.instance_method(mangled_selector)
             else
@@ -157,7 +157,7 @@ class LookupState
                 get_method_for_this_state
             else
                 mangled_selector = Kernel.__partial_selector(selector, current_layer)
-                if current_class.instance_methods.include?(mangled_selector)
+                if current_class.instance_methods(false).include?(mangled_selector)
                     # found partial method
                     current_class.instance_method(mangled_selector)
                 else
@@ -170,16 +170,19 @@ class LookupState
     end
 
     def get_method_for_next_state
-        if end_of_runtime_layer_superclass_hierarchy?
+        if end_of_layer_stack?
             # check next superclass
-            advance_current_class!
             top_of_composition_stack!
+            advance_current_class!
             get_method_for_this_state
         else
-            # check next layer
-            # TODO: how do we get the runtime_layer of current_layer???
-            advance_runtime_layer!
-            get_method_for_this_state
+            if end_of_runtime_layer_superclass_hierarchy?
+                advance_runtime_layer!
+                get_method_for_this_state
+            else
+                advance_current_layer!
+                get_method_for_this_state
+            end
         end
     end
 end
