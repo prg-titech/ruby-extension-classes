@@ -2,26 +2,10 @@ require "binding_of_caller"
 require "debug_inspector"
 
 class Object
+    # Invoke next partial method (or base method)
     def proceed(*args, &block)
         # TODO: this code works only for instance methods at the moment
-
-        current_method_selector = binding.of_caller(1).eval("__callee__")
-        is_base = current_method_selector.to_s.end_with?("_original")
-
         target_object = target_class = binding.of_caller(1).eval("self")
-        if !target_class.is_a?(Module)
-            target_class = target_class.class
-        end
-
-        # Invoke next partial method (or base method)
-        LOG.info("Current method selector: #{current_method_selector}")
-
-        # Determine the layer which contains this method
-        current_owner = nil
-        if not is_base
-            current_owner_str = current_method_selector.to_s.split("_partial_").last
-            current_owner = Kernel.__get_class(Kernel.__selector_part_to_class_name(current_owner_str))
-        end
 
         # Retrieve the exact class to which this method belongs (not polymorphic type)
         current_class = nil
@@ -63,29 +47,8 @@ class Object
     end
 end
 
-module Kernel
-    # Retrieves the next method (UnboundMethod) that should be called
-    def self.__get_next_method(lookup_state)
-
-    end
-
-    def self.__get_method_for(lookup_state)
-
-    end
-
-    # Returns the layer underneath current_layer, or nil if there are no more layers
-    def self.__get_next_layer(runtime_layer)
-        __layer_stack[__layer_stack.find_index(runtime_layer) + 1]
-    end
-
-    # Returns the next superclass/supermodule of klass in the hierarchy of runtime_class
-    def self.__get_superclass(klass, runtime_class)
-        # Don't use "superclass" method to account for modules
-        superclasses = runtime_class.ancestors - [BasicObject]
-        superclasses[superclasses.find_index(klass) + 1]
-    end
-end
-
+# Stored the state of the current lookup. Will be reused when calling "proceed"
+# to determine the next method to be invoked.
 class LookupState
     def initialize(current_class:, runtime_class:, selector:, runtime_layer:, current_layer: runtime_layer)
         @current_class = current_class
@@ -101,8 +64,20 @@ class LookupState
     attr_accessor :current_layer
     attr_accessor :selector
 
+    # Returns the layer underneath current_layer, or nil if there are no more layers
+    def self.__get_next_layer(runtime_layer)
+        Kernel.__layer_stack[Kernel.__layer_stack.find_index(runtime_layer) + 1]
+    end
+
+    # Returns the next superclass/supermodule of klass in the hierarchy of runtime_class
+    def self.__get_superclass(klass, runtime_class)
+        # Don't use "superclass" method to account for modules
+        superclasses = runtime_class.ancestors - [BasicObject]
+        superclasses[superclasses.find_index(klass) + 1]
+    end
+
     def advance_current_class!
-        @current_class = Kernel.__get_superclass(@current_class, @runtime_class)
+        @current_class = LookupState.__get_superclass(@current_class, @runtime_class)
     end
 
     def top_of_composition_stack!
@@ -110,11 +85,11 @@ class LookupState
     end
 
     def advance_runtime_layer!
-        @runtime_layer = @current_layer = Kernel.__get_next_layer(@runtime_layer)
+        @runtime_layer = @current_layer = LookupState.__get_next_layer(@runtime_layer)
     end
 
     def advance_current_layer!
-        @current_layer = Kernel.__get_superclass(@current_layer, @runtime_layer)
+        @current_layer = LookupState.__get_superclass(@current_layer, @runtime_layer)
     end
 
     def end_of_superclass_hierarchy?
@@ -129,6 +104,7 @@ class LookupState
         @runtime_layer == nil
     end
 
+    # Get method for current state. Does not advance the state if necessary (only if the lookup would otherwise be unsuccessful; i.e., determines current method to be called).
     def get_method_for_this_state
         if end_of_superclass_hierarchy?
             # Lookup failed
@@ -169,6 +145,7 @@ class LookupState
         end
     end
 
+    # Advances the state and performs a lookup (i.e., determines next method to be called).
     def get_method_for_next_state
         if end_of_layer_stack?
             # check next superclass
