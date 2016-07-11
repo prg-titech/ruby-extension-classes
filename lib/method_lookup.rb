@@ -64,6 +64,10 @@ class LookupState
     attr_accessor :current_layer
     attr_accessor :selector
 
+    def to_s
+        "<LS #{selector} class=#{current_class}/#{runtime_class} layer=#{current_layer}/#{runtime_layer}>"
+    end
+
     # Returns the layer underneath current_layer, or nil if there are no more layers
     def self.__get_next_layer(runtime_layer)
         Kernel.__layer_stack[Kernel.__layer_stack.find_index(runtime_layer) + 1]
@@ -74,6 +78,17 @@ class LookupState
         # Don't use "superclass" method to account for modules
         superclasses = runtime_class.ancestors - [BasicObject]
         superclasses[superclasses.find_index(klass) + 1]
+    end
+
+    def self.class_has_instance_method?(klass, selector)
+        # instance_methods(false) does not work for overridden methods
+        if klass.instance_methods.include?(selector)
+            if klass.instance_method(selector).owner == klass
+                return true
+            end
+        end
+
+        false
     end
 
     def advance_current_class!
@@ -114,7 +129,7 @@ class LookupState
         if end_of_layer_stack?
             # base method
             mangled_selector = Kernel.__original_selector(selector)
-            if current_class.instance_methods(false).include?(mangled_selector)
+            if LookupState.class_has_instance_method?(current_class, mangled_selector)
                 # found base method
                 current_class.instance_method(mangled_selector)
             else
@@ -125,7 +140,6 @@ class LookupState
             end
         else
             # look partial method/base method of current_class
-
             if end_of_runtime_layer_superclass_hierarchy?
                 # exhausted search in superclass hierarchy of runtime_layer, progress to next layer
                 advance_runtime_layer!
@@ -133,7 +147,7 @@ class LookupState
                 get_method_for_this_state
             else
                 mangled_selector = Kernel.__partial_selector(selector, current_layer)
-                if current_class.instance_methods(false).include?(mangled_selector)
+                if LookupState.class_has_instance_method?(current_class, mangled_selector)
                     # found partial method
                     current_class.instance_method(mangled_selector)
                 else

@@ -2,7 +2,8 @@ require "binding_of_caller"
 
 class Module
     LOG = Kernel::LOG
-    EXLCUDED_METHODS = [:method_added, :singleton_method_added, :is_defining_partial?]
+    # Cannot alias #initialize for some reason
+    EXLCUDED_METHODS = [:method_added, :singleton_method_added, :is_defining_partial?, :initialize]
     EXCLUDED_CLASSES = [IO]
     # Do not mess with the testing framework
     EXCLUDED_CLASSES_START_WITH = ["Test::"]
