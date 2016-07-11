@@ -6,6 +6,7 @@ class TestCase < Test::Unit::TestCase
 	end
 
 	def assert_stack_empty
-		assert(Kernel.__layer_stack.empty?, "Composition stack not empty")
+		stack_without_self = Kernel.__layer_stack - [self.class, Object]
+		assert(stack_without_self.empty?, "Composition stack not empty: #{stack_without_self}")
 	end
 end
