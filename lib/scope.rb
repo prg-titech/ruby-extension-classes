@@ -44,12 +44,15 @@ class Module
                 # Dynamic Scoping
                 scope += next_class.__target_classes
 
-                # Inheritance Scoping
                 if next_class.is_a?(Class)
-                    # TODO: account for included modules
                     if not FORBIDDEN_SUPERCLASS_SCOPING.include?(next_class.superclass)
                         # Special rule: do not include Object
                         queue.push(next_class.superclass)
+                    end
+
+                    # Push all included modules
+                    if next_class != BasicObject
+                        queue += next_class.included_modules - next_class.superclass.included_modules
                     end
                 end
 

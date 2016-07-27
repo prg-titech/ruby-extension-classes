@@ -3,10 +3,10 @@ require "binding_of_caller"
 class Module
     LOG = Kernel::LOG
     # Cannot alias #initialize for some reason
-    EXLCUDED_METHODS = [:method_added, :singleton_method_added, :is_defining_partial?, :initialize]
+    EXLCUDED_METHODS = [:method_added, :singleton_method_added, :is_defining_partial?, :initialize, :pretty_print, :pretty_print_cycle, :pretty_inspect, :pp]
     EXCLUDED_CLASSES = [IO]
     # Do not mess with the testing framework
-    EXCLUDED_CLASSES_START_WITH = ["Test::"]
+    EXCLUDED_CLASSES_START_WITH = ["Test::", "PP", "PrettyPrint"]
 
     alias_method(:__original_private, :private)
     alias_method(:__original_protected, :protected)
